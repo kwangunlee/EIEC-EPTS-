@@ -39,9 +39,16 @@ def is_text(sr: pd.Series) -> bool:
 
 
 def clean(s, maxlen: int | None = None, flat: bool = False):
-    """HTML 원문 → 읽을 수 있는 평문. 빈 값은 None."""
-    if not isinstance(s, str) or not s:
-        return None if s == "" else s
+    """HTML 원문 → 읽을 수 있는 평문. 빈 값은 None.
+
+    결측값은 소스에 따라 모양이 다르다 — CSV는 float nan, 엑셀은 pd.NA, None 등.
+    문자열이 아니면 전부 결측으로 보고 None을 돌려준다.
+    (pd.NA는 == 비교가 ambiguous 에러를 내므로 isinstance로 먼저 거른다.)
+    """
+    if not isinstance(s, str):
+        return None
+    if not s:
+        return None
 
     s = html.unescape(html.unescape(s))
     s = LI.sub("\n• ", s)

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from . import schema
@@ -56,14 +57,35 @@ class Bundle:
 
 
 def _read_one(name: str, data_dir: Path) -> pd.DataFrame:
-    """parquet 우선, 없으면 csv. 둘 다 없으면 빈 프레임."""
+    """data/ 에서 데이터셋 하나를 읽는다.
+
+    우선순위: parquet → csv → xlsx → xlsm
+    셋 다 같은 이름(name)으로 찾으므로, repo에 epic.xlsx 를 커밋해도 바로 읽힌다.
+    확장자만 맞으면 된다.
+    """
     pq = data_dir / f"{name}.parquet"
     if pq.exists():
         return pd.read_parquet(pq)
+
     csv = data_dir / f"{name}.csv"
     if csv.exists():
         return pd.read_csv(csv, dtype=str, keep_default_na=False,
                            na_values=schema.NA_STRINGS, encoding="utf-8-sig")
+
+    for ext in ("xlsx", "xlsm"):
+        xl = data_dir / f"{name}.{ext}"
+        if xl.exists():
+            # 엑셀을 직접 커밋한 경우. 첫 시트를 문자열로 읽는다.
+            # CSV 리더와 동일한 형태(object dtype + np.nan)로 맞춘다.
+            # StringDtype(pd.NA)은 화면 코드의 `if v`에서 ambiguous 에러를 내므로 피한다.
+            df = pd.read_excel(xl, dtype=str, sheet_name=0,
+                               keep_default_na=False, na_values=schema.NA_STRINGS)
+            for c in df.columns:
+                if df[c].dtype == object:
+                    df[c] = df[c].map(lambda x: x.strip() if isinstance(x, str) else x)
+                    df[c] = df[c].replace("", np.nan)
+            return df
+
     return pd.DataFrame()
 
 
@@ -90,15 +112,29 @@ def now_kst() -> str:
     return datetime.now(KST).strftime("%Y-%m-%d %H:%M")
 
 
-def load_bundle(data_dir: Path | None = None) -> Bundle:
-    """data/ 에서 세 데이터셋을 읽어 파생 컬럼까지 붙인 Bundle 반환."""
+def load_bundle(data_dir: Path | None = None, auto_clean: bool = True) -> Bundle:
+    """data/ 에서 데이터셋을 읽어 파생 컬럼까지 붙인 Bundle 반환.
+
+    auto_clean=True면 읽은 뒤 HTML 정제를 한 번 돌린다.
+    - 쿼리 결과(csv/xlsx)를 data/ 에 '바로 커밋'해도 화면에 깨끗하게 나온다.
+    - 이미 ⚙️ 화면에서 정제한 데이터는 재정제해도 무동작(idempotent)이라 안전.
+    - parquet은 이미 정제된 것으로 보고 건드리지 않는다.
+    """
     from . import transform  # 순환 import 방지
+    from . import clean       # 순환 import 방지
 
     d = Path(data_dir) if data_dir else DATA_DIR
     # Bundle이 실제로 가진 필드만 채운다 (schema와 어긋나도 생성은 성공하도록)
     known = {f.name for f in fields(Bundle)}
     frames = {name: _read_one(name, d)
               for name in schema.DATASETS if name in known}
+
+    if auto_clean:
+        for name, df in frames.items():
+            # parquet 원본은 정제 완료본으로 간주하고 건너뛴다
+            if df.empty or (d / f"{name}.parquet").exists():
+                continue
+            frames[name] = clean.clean_frame(df)
 
     epic, link = frames[schema.EPIC], frames[schema.LINK]
     if not epic.empty:
