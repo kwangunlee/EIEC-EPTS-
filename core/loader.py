@@ -25,6 +25,9 @@ class Bundle:
     epic: pd.DataFrame = field(default_factory=pd.DataFrame)
     epts: pd.DataFrame = field(default_factory=pd.DataFrame)
     link: pd.DataFrame = field(default_factory=pd.DataFrame)
+    subject_eiec: pd.DataFrame = field(default_factory=pd.DataFrame)
+    subject_epts: pd.DataFrame = field(default_factory=pd.DataFrame)
+    subject_map: pd.DataFrame = field(default_factory=pd.DataFrame)
     manifest: dict = field(default_factory=dict)
 
     @property
@@ -36,9 +39,7 @@ class Bundle:
         return self.epic.empty and self.epts.empty
 
     def counts(self) -> dict[str, int]:
-        return {schema.EPIC: len(self.epic),
-                schema.EPTS: len(self.epts),
-                schema.LINK: len(self.link)}
+        return {name: len(getattr(self, name)) for name in schema.DATASETS}
 
 
 def _read_one(name: str, data_dir: Path) -> pd.DataFrame:
@@ -81,23 +82,22 @@ def load_bundle(data_dir: Path | None = None) -> Bundle:
     from . import transform  # 순환 import 방지
 
     d = Path(data_dir) if data_dir else DATA_DIR
-    epic = _read_one(schema.EPIC, d)
-    epts = _read_one(schema.EPTS, d)
-    link = _read_one(schema.LINK, d)
+    frames = {name: _read_one(name, d) for name in schema.DATASETS}
 
+    epic, link = frames[schema.EPIC], frames[schema.LINK]
     if not epic.empty:
         epic = transform.enrich_epic(epic)
         epic = transform.attach_link_status(epic, link)
+        frames[schema.EPIC] = epic
 
-    return Bundle(epic=epic, epts=epts, link=link, manifest=read_manifest(d))
+    return Bundle(**frames, manifest=read_manifest(d))
 
 
 def validate(bundle: Bundle) -> list[str]:
     """필수 컬럼 누락 등 구조 문제를 문자열 목록으로 돌려준다."""
     problems: list[str] = []
-    for name, df in ((schema.EPIC, bundle.epic),
-                     (schema.EPTS, bundle.epts),
-                     (schema.LINK, bundle.link)):
+    for name in schema.DATASETS:
+        df = getattr(bundle, name)
         if df.empty:
             problems.append(f"{name}: 데이터 없음")
             continue

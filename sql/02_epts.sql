@@ -34,6 +34,12 @@ SELECT
     c.GVDPT_BIG_NM          AS 소관부처_대,
     c.GVDPT_MID_NM          AS 소관부처_중,
     c.GVDPT_SML_NM          AS 소관부처_소,
+    -- 테마도 코드·명칭 쌍으로 (매칭은 코드, 표시는 한글명)
+    c.RELT_THEM_BIG_1_CD AS 테마_대분류1_코드,
+    c.RELT_THEM_MID_1_CD AS 테마_중분류1_코드,
+    c.RELT_THEM_SML_1_CD AS 테마_소분류1_코드,
+    c.RELT_THEM_SML_2_CD AS 테마_소분류2_코드,
+    c.RELT_THEM_SML_3_CD AS 테마_소분류3_코드,
     rb1.RELT_THEM_NM AS 테마_대분류1, rm1.RELT_THEM_NM AS 테마_중분류1, rs1.RELT_THEM_NM AS 테마_소분류1,
     rb2.RELT_THEM_NM AS 테마_대분류2, rm2.RELT_THEM_NM AS 테마_중분류2, rs2.RELT_THEM_NM AS 테마_소분류2,
     rb3.RELT_THEM_NM AS 테마_대분류3, rm3.RELT_THEM_NM AS 테마_중분류3, rs3.RELT_THEM_NM AS 테마_소분류3,

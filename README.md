@@ -15,6 +15,7 @@ core/                   Streamlit에 의존하지 않는 순수 로직 (테스�
   schema.py             컬럼 정의·상수·컬럼정의서
   clean.py              HTML 정제 (노트북 로직 이식)
   transform.py          부처 추출, 등록여부 판정, 집계
+  subject.py            주제 체계 분석 (코드 기준 매칭)
   loader.py             data/ 적재 + manifest + 검증
   recommend.py          기능3 추천 엔진
 features/               기능(페이지) 모듈 — 하나당 파일 하나
@@ -23,8 +24,9 @@ features/               기능(페이지) 모듈 — 하나당 파일 하나
   f1_registration.py    기능1 EPTS 등록 현황
   f2_epts_detail.py     기능2 EPTS 대책 상세
   f3_recommend.py       기능3 추진내역 추천
+  f4_subject.py         기능4 주제분류 현황
   f9_admin.py           데이터 갱신 (관리자)
-sql/                    추출 쿼리 3종
+sql/                    추출 쿼리 6종
 data/                   스냅샷 (epic.csv, epts.csv, link.csv, manifest.json)
 tests/                  합성 데이터 생성 + 전 페이지 헤드리스 테스트
 ```
@@ -54,7 +56,8 @@ python tests/make_sample.py data     # 가짜 데이터 300/40/130건 생성
 
 ## 데이터 갱신 (관리자)
 
-1. DBeaver에서 `sql/01_epic.sql`, `02_epts.sql`, `03_link.sql` 을 각각 실행해 **CSV로 내보낸다.**
+1. DBeaver에서 `sql/` 의 쿼리를 각각 실행해 **CSV로 내보낸다.**
+   `01`~`03` 은 매번, `04`~`06`(주제 체계)은 분류 체계가 바뀔 때만 갱신하면 된다.
    - HTML 정제는 하지 않는다. 원문 그대로 받는다.
    - 내보내기 설정: 인코딩 `UTF-8`, **`Quote always` 켜기** (CLOB에 줄바꿈·쉼표가 들어 있다)
    - CLOB이 잘리면 Preferences → Editors → Data Editor → `Maximum LOB length` 를 키운다.
@@ -75,6 +78,9 @@ Streamlit Cloud의 파일시스템은 휘발성이라 앱이 repo에 직접 쓰�
 | `epic.csv` | 자료 1건 = 1행 | TOPIC은 쉼표로 묶음 |
 | `epts.csv` | 대책 1건 = 1행 | **EPIC에 연결 안 된 대책도 포함** |
 | `link.csv` | NUM × CTE_SEQ × 관계구분 | 매칭 / 포워딩 구분 |
+| `subject_eiec.csv` | EIEC 주제코드 1건 = 1행 | 계층은 코드 자리수로 추정 |
+| `subject_epts.csv` | EPTS 테마코드 1건 = 1행 | `HRNK_RELT_THEM_CD` 트리 |
+| `subject_map.csv` | 주제코드 × 테마코드 1쌍 = 1행 | `EPTS_RELATION` 전개 |
 
 `epts.csv` 가 별도인 이유 — EPIC 기준 LEFT JOIN으로는 "연결된" 대책만 보인다.
 기능 2·3은 연결이 **없는** 대책이 오히려 핵심 대상이다.
@@ -94,6 +100,23 @@ Streamlit Cloud의 파일시스템은 휘발성이라 앱이 repo에 직접 쓰�
 ### 2. EPTS 대책 상세
 대책의 관련주제·정책배경·정책내용과, 연결된 EPIC을 매칭/포워딩으로 나눠 본다.
 관련테마가 비어 있으면 경고한다 (추천 정확도가 떨어지므로).
+
+### 4. 주제분류 현황
+EIEC 주제와 EPTS 테마는 **서로 독립된 체계**다. 둘을 잇는 건 `EPTS_RELATION` 하나뿐이다.
+
+| 체계 | 마스터 | 계층 |
+|---|---|---|
+| EIEC/EPIC | `EPIC.JUJEDBE` | 부모 컬럼 **없음**. `J_CODE` 자리수로 추정 (`C` / `C05` / `C0501`) |
+| EPTS | `EPTS.CMTN_RELT_THEM_MNG` | `HRNK_RELT_THEM_CD` 자기참조 트리 |
+
+**집계·매칭은 코드로, 표시는 한글명으로** 한다. 이름은 중복·변경되지만 코드는 안정적이다.
+그래서 모든 주제 데이터셋은 코드와 명칭을 쌍으로 들고 다닌다.
+
+탭 구성 — 매핑 현황(미매핑 주제를 자료 많은 순으로) / EIEC 주제 체계 / EPTS 테마 체계 /
+정합성 점검(마스터에 없는 주제코드, 깨진 매핑).
+
+> ⚠ EIEC 계층은 추정이다. `sql/04_subject_eiec.sql` 하단의 [확인] 쿼리로 체계를 확정한 뒤
+> 실제와 다르면 쿼리를 고쳐야 한다.
 
 ### 3. 추진내역 추천
 대책 내용을 질의로 삼아 붙을 만한 EPIC을 점수순으로 제시한다.
@@ -175,6 +198,7 @@ python tests/test_app.py             # 전 페이지 헤드리스 실행
 | 본문 HTML 오염 | 웹에디터에 서식째 붙여넣기 → `&lt;p&gt;`, `font-claude-response-body` 등이 이스케이프되어 저장 | 조회 시 정제. **원본은 그대로** — 입력 단계 수정 필요 |
 | 빈 껍데기 본문 | NULL이 아니라 `<p><br></p>` | 정제 후 빈칸 처리 |
 | TOPIC 소문자 | `p` 혼입 | 대소문자 무시 |
+| EIEC 주제 계층 | 마스터에 부모 컬럼 없음 | 코드 자리수로 추정 — `04` 쿼리 [확인] 필요 |
 | DBeaver NULL 문자열 | `[NULL]` 등이 글자로 내보내짐 | `schema.NA_STRINGS` 로 환원 |
 
 오염 건의 입력 경로는 아래로 추적한다.

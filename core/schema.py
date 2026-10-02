@@ -8,7 +8,17 @@ from __future__ import annotations
 EPIC = "epic"
 EPTS = "epts"
 LINK = "link"
-DATASETS = (EPIC, EPTS, LINK)
+SUBJ_EIEC = "subject_eiec"      # EIEC/EPIC 주제 체계
+SUBJ_EPTS = "subject_epts"      # EPTS 테마 체계
+SUBJ_MAP = "subject_map"        # 두 체계의 매핑
+DATASETS = (EPIC, EPTS, LINK, SUBJ_EIEC, SUBJ_EPTS, SUBJ_MAP)
+
+# 주제 체계는 코드로 매칭하고 한글명으로 표시한다.
+# 그래서 모든 주제 데이터셋은 코드·명칭을 쌍으로 갖는다.
+CODE_NAME_PAIRS = {
+    SUBJ_EIEC: ("주제코드", "주제명"),
+    SUBJ_EPTS: ("테마코드", "테마명"),
+}
 
 # ── 키 ──────────────────────────────────────────────────────────
 KEY_EPIC = "NUM"
@@ -24,13 +34,27 @@ SKIP_CLEAN = {
     "NUM", "CTE_SEQ", "URL", "PUBLISH_DATE", "발표일자",
     "FRWD_HIST_SEQ", "순서", "등록일시", "수정일시",
     "추진내역_최종수정", "추진내역_건수", "매칭_EPIC수", "포워딩_EPIC수", "조회수",
+    # 주제 체계 — 코드는 매칭 키라 절대 건드리지 않는다
+    "주제코드", "테마코드", "상위코드", "대분류코드", "중분류코드", "소분류코드",
+    "주제_대분류코드", "주제_중분류코드", "테마_상위코드", "깊이", "순서",
+    "SUBJECT_CODE1", "SUBJECT_CODE2", "SUBJECT_CODE3",
+    "테마_대분류1_코드", "테마_중분류1_코드",
+    "테마_소분류1_코드", "테마_소분류2_코드", "테마_소분류3_코드",
 }
+
+# EPIC/EPTS 레코드가 들고 있는 주제·테마 코드 컬럼
+EPIC_SUBJECT_CODE_COLS = ["SUBJECT_CODE1", "SUBJECT_CODE2", "SUBJECT_CODE3"]
+EPTS_THEME_CODE_COLS = ["테마_소분류1_코드", "테마_소분류2_코드", "테마_소분류3_코드"]
+NULL_SUBJECT_CODE = "00000"      # 미지정 주제코드
 
 # ── 각 데이터셋에서 반드시 있어야 하는 컬럼 ─────────────────────
 REQUIRED = {
     EPIC: ["NUM", "PUBLISHER1", "TITLE", "PUBLISH_DATE"],
     EPTS: ["CTE_SEQ", "CTE_NM"],
     LINK: ["NUM", "CTE_SEQ", "관계구분"],
+    SUBJ_EIEC: ["주제코드", "주제명"],
+    SUBJ_EPTS: ["테마코드", "테마명", "깊이"],
+    SUBJ_MAP: ["주제코드", "테마코드", "매핑단계"],
 }
 
 # ── 관계구분 값 ─────────────────────────────────────────────────

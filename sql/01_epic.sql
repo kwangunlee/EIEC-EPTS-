@@ -48,6 +48,10 @@ SELECT
     'https://eiec.kdi.re.kr/policy/materialView.do?num=' || e.NUM AS URL,
     e.PUBLISH_DATE,
     ta.TOPIC_LIST AS TOPIC,
+    -- 주제는 코드·명칭을 쌍으로 내보낸다 (매칭은 코드, 표시는 한글명)
+    TRIM(e.SUBJECT_CODE1) AS SUBJECT_CODE1,
+    TRIM(e.SUBJECT_CODE2) AS SUBJECT_CODE2,
+    TRIM(e.SUBJECT_CODE3) AS SUBJECT_CODE3,
     j1.J_NAME AS SUBJECT_NAME1,
         cm1.EPTS_BIG AS 매핑대상_대분류1, cm1.EPTS_MID AS 매핑대상_중분류1, cm1.EPTS_SML AS 매핑대상_소분류1,
     j2.J_NAME AS SUBJECT_NAME2,

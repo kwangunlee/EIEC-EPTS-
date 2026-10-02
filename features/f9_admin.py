@@ -19,6 +19,9 @@ UPLOADS = [
     (schema.EPIC, "01_epic.sql 결과", "자료 1건 = 1행"),
     (schema.EPTS, "02_epts.sql 결과", "대책 1건 = 1행"),
     (schema.LINK, "03_link.sql 결과", "NUM × CTE_SEQ 관계"),
+    (schema.SUBJ_EIEC, "04_subject_eiec.sql 결과", "EIEC 주제 체계"),
+    (schema.SUBJ_EPTS, "05_subject_epts.sql 결과", "EPTS 테마 체계"),
+    (schema.SUBJ_MAP, "06_subject_map.sql 결과", "주제 ↔ 테마 매핑"),
 ]
 
 
@@ -55,7 +58,7 @@ def render(bundle: loader.Bundle) -> None:
             files[key] = up
 
     if not files:
-        st.caption("세 파일을 모두 올리는 것이 원칙이지만, 일부만 갱신해도 됩니다.")
+        st.caption("주제 체계(04~06)는 자주 바뀌지 않으므로 01~03만 갱신해도 됩니다.")
         return
 
     maxlen = st.number_input("본문 최대 길이 (0 = 제한 없음)", 0, 20000, 1000, step=100)
