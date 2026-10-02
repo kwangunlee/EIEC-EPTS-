@@ -14,6 +14,9 @@ from . import schema
 # 부처명 뒤에 붙는 하위 조직 접미사 — 첫 토큰이 부처가 아닐 때 탐지용
 _ORG_TAIL = re.compile(r"(실|국|관|과|팀|단|원|처|청|부|위원회|본부)$")
 
+# EIEC 상세페이지. NUM만 있으면 링크를 만들 수 있다.
+EIEC_VIEW_URL = "https://eiec.kdi.re.kr/policy/materialView.do?num="
+
 
 def extract_ministry(publisher: str | None) -> str | None:
     """PUBLISHER1의 첫 토큰을 부처로 뽑는다.
@@ -123,6 +126,17 @@ def epts_links(cte_seq, link: pd.DataFrame, epic: pd.DataFrame) -> pd.DataFrame:
     e = epic.copy()
     e["NUM"] = e["NUM"].astype(str)
     merged = lk.merge(e[cols], on="NUM", how="left")
+
+    # link는 전체 기간을 담지만 epic은 정부 기간으로 잘려 있다.
+    # 기간 밖 자료는 제목이 비는데, URL은 NUM만으로 만들 수 있으니 살려 둔다.
+    if "TITLE" in merged.columns:
+        outside = merged["TITLE"].isna()
+        if outside.any():
+            merged.loc[outside, "TITLE"] = "(추출 기간 밖 자료)"
+            if "URL" in merged.columns:
+                merged.loc[outside, "URL"] = (
+                    EIEC_VIEW_URL + merged.loc[outside, "NUM"].astype(str))
+
     keep = ["관계구분", "NUM", "TITLE", "부처", "PUBLISH_DATE",
             "추진내역명", "대표노출여부", "URL"]
     return merged[[c for c in keep if c in merged.columns]].sort_values(
